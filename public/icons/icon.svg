@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="80" fill="#0096c7"/>
+  <text x="256" y="320" font-family="Arial, sans-serif" font-size="200" font-weight="900" fill="white" text-anchor="middle">CSA</text>
+  <path d="M 100 120 Q 256 80 412 120" stroke="white" stroke-width="8" fill="none" opacity="0.6"/>
+  <path d="M 100 180 Q 256 140 412 180" stroke="white" stroke-width="8" fill="none" opacity="0.4"/>
+  <path d="M 100 240 Q 256 200 412 240" stroke="white" stroke-width="8" fill="none" opacity="0.2"/>
+</svg>
