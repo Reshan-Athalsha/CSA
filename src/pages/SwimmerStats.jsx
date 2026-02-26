@@ -1,19 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import collections from '@/api/supabaseClient';
 import { localCache } from '@/lib/cache';
-import { Trophy, ClipboardCheck, Bell, Loader2, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatTime } from '@/utils';
+import { Trophy, ClipboardCheck, Bell, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import RoleGuard from '@/components/RoleGuard';
 
-function formatTime(secs) {
-  if (!secs) return '–';
-  const m = Math.floor(secs / 60);
-  const s = (secs % 60).toFixed(2).padStart(5, '0');
-  return m > 0 ? `${m}:${s}` : `${parseFloat(s).toFixed(2)}s`;
-}
-
 // ── Progress Chart ──────────────────────────────────────────────────────────
-function ProgressChart({ raceTimes }) {
+const ProgressChart = memo(function ProgressChart({ raceTimes }) {
   const events = [...new Set(raceTimes.map(r => r.event))];
   const [selectedEvent, setSelectedEvent] = useState(events[0] || null);
 
@@ -130,7 +124,7 @@ function ProgressChart({ raceTimes }) {
       </div>
     </div>
   );
-}
+});
 
 // ── Mini attendance calendar ──────────────────────────────────────────────
 const STATUS_COLORS = {
@@ -139,7 +133,7 @@ const STATUS_COLORS = {
   Excused: '#d97706',
 };
 
-function AttendanceCalendar({ records }) {
+const AttendanceCalendar = memo(function AttendanceCalendar({ records }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth()); // 0-based
@@ -238,7 +232,7 @@ function AttendanceCalendar({ records }) {
       </div>
     </div>
   );
-}
+});
 
 export default function SwimmerStats() {
   return (

@@ -69,7 +69,6 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const { data: { subscription } } = auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth event:', event);
 
       if (event === 'INITIAL_SESSION') {
         initializedRef.current = true;
@@ -115,8 +114,18 @@ export const AuthProvider = ({ children }) => {
       }, IDLE_TIMEOUT_MS);
     };
 
+    // Throttle activity events — no need to reset timer more than once per 30s
+    let lastActivity = 0;
+    const THROTTLE_MS = 30_000;
+    const throttledReset = () => {
+      const now = Date.now();
+      if (now - lastActivity < THROTTLE_MS) return;
+      lastActivity = now;
+      resetIdleTimer();
+    };
+
     const ACTIVITY_EVENTS = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
-    ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, resetIdleTimer, { passive: true }));
+    ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, throttledReset, { passive: true }));
     resetIdleTimer(); // start the clock immediately
 
     const handleVisibility = () => {
@@ -143,7 +152,7 @@ export const AuthProvider = ({ children }) => {
     return () => {
       clearTimeout(idleTimer);
       clearTimeout(hiddenTimer);
-      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, resetIdleTimer));
+      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, throttledReset));
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [isAuthenticated]);

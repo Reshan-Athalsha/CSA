@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/api/supabaseClient';
 import collections from '@/api/supabaseClient';
-import { CheckCircle, XCircle, Clock, Search, Loader2, FileDown, Plus, Star, TrendingDown, X } from 'lucide-react';
+import { formatTime } from '@/utils';
+import useDebouncedValue from '@/hooks/useDebouncedValue';
+import { CheckCircle, XCircle, Clock, Search, Loader2, FileDown, Plus, Star, TrendingDown, X, WifiOff, RefreshCw } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
 import { localCache } from '@/lib/cache';
+import { offlineQueue } from '@/lib/offlineQueue';
 
 const EVENTS = [
   '50m Freestyle', '100m Freestyle', '200m Freestyle', '400m Freestyle',
@@ -12,13 +15,6 @@ const EVENTS = [
   '50m Butterfly', '100m Butterfly', '200m Butterfly',
   '200m Individual Medley', '400m Individual Medley',
 ];
-
-function formatTime(secs) {
-  if (!secs) return '–';
-  const m = Math.floor(secs / 60);
-  const s = (secs % 60).toFixed(2).padStart(5, '0');
-  return m > 0 ? `${m}:${s}` : `${parseFloat(s).toFixed(2)}s`;
-}
 
 const STATUS_CONFIG = {
   Present: { color: '#0096c7', bg: '#f0fbff', icon: CheckCircle },
@@ -40,10 +36,13 @@ function CheckInContent({ user }) {
   const [date, setDate] = useState(today);
   const [squad, setSquad] = useState('All');
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 200);
   const [swimmers, setSwimmers] = useState([]);
   const [attendance, setAttendance] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState({});
+  const [pendingCount, setPendingCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   // ── Session Times state ────
   const [sessionTimes, setSessionTimes] = useState([]); // racetimes logged on `date`
@@ -56,6 +55,59 @@ function CheckInContent({ user }) {
   useEffect(() => {
     loadData();
   }, [date, squad]);
+
+  // ── Online/offline + queue tracking ────
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Track pending queue count for the UI badge
+    const updateCount = () => offlineQueue.count().then(setPendingCount);
+    updateCount(); // initial
+    const unsub = offlineQueue.subscribe(updateCount);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      unsub();
+    };
+  }, []);
+
+  // ── Supabase Realtime — live attendance sync between coaches ────
+  useEffect(() => {
+    const channel = supabase
+      .channel('attendance-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance', filter: `date=eq.${date}` },
+        (payload) => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const record = payload.new;
+            setAttendance(prev => {
+              // Only update if we don't have a temp/optimistic record for this swimmer
+              const existing = Object.values(prev).find(a => a.swimmer_id === record.swimmer_id);
+              if (existing?.id?.startsWith?.('temp-')) return prev; // don't overwrite our pending optimistic write
+              return { ...prev, [record.swimmer_id]: record };
+            });
+          } else if (payload.eventType === 'DELETE') {
+            const old = payload.old;
+            setAttendance(prev => {
+              const next = { ...prev };
+              // Find and remove the deleted record
+              for (const [key, val] of Object.entries(next)) {
+                if (val.id === old.id) { delete next[key]; break; }
+              }
+              return next;
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [date]);
 
   // Reload session times whenever date changes or tab switches to 'times'
   useEffect(() => {
@@ -154,14 +206,17 @@ function CheckInContent({ user }) {
   async function setStatus(swimmer, status) {
     const existing = attendance[swimmer.id];
     
+    // Haptic feedback for poolside tapping (short pulse)
+    try { navigator.vibrate?.(30); } catch {}
+    
     // OPTIMISTIC UI: Update UI immediately before API call
     const optimisticRecord = existing
       ? { ...existing, status }
       : { id: `temp-${swimmer.id}`, swimmer_id: swimmer.id, date, status };
     
-    // Update UI instantly
+    // Update UI instantly — no waiting for network
     setAttendance(a => ({ ...a, [swimmer.id]: optimisticRecord }));
-    setSaving(s => ({ ...s, [swimmer.id]: true }));
+    // Don't show spinner — the tap itself gives visual feedback via color change
     
     // Sync to server in background
     try {
@@ -178,34 +233,63 @@ function CheckInContent({ user }) {
       // Update with server response to ensure sync
       setAttendance(a => ({ ...a, [swimmer.id]: serverRecord }));
     } catch (error) {
-      console.error('Failed to sync attendance:', error);
-      // Revert on error
-      if (existing) {
-        setAttendance(a => ({ ...a, [swimmer.id]: existing }));
-      } else {
-        setAttendance(a => {
-          const newState = { ...a };
-          delete newState[swimmer.id];
-          return newState;
+      // OFFLINE QUEUE: instead of reverting, queue the operation for later sync
+      console.warn('[CSA] Network error, queuing attendance for sync:', error.message || error);
+      try {
+        await offlineQueue.enqueue({
+          table: 'attendance',
+          op: existing && !existing.id?.startsWith('temp-') ? 'update' : 'create',
+          data: {
+            swimmer_id: swimmer.id,
+            date,
+            status,
+            existingId: existing?.id?.startsWith('temp-') ? null : existing?.id,
+          },
         });
+      } catch (queueErr) {
+        console.error('[CSA] Failed to queue offline operation:', queueErr);
+        // Last resort: revert the optimistic UI
+        if (existing) {
+          setAttendance(a => ({ ...a, [swimmer.id]: existing }));
+        } else {
+          setAttendance(a => {
+            const newState = { ...a };
+            delete newState[swimmer.id];
+            return newState;
+          });
+        }
       }
-    } finally {
-      setSaving(s => ({ ...s, [swimmer.id]: false }));
     }
   }
 
+  // Manual sync retry
+  const handleManualSync = useCallback(async () => {
+    const result = await offlineQueue.flush(supabase);
+    if (result.synced > 0) {
+      // Reload fresh data from server after sync
+      loadData();
+    }
+  }, [date, squad]);
+
   const filtered = swimmers.filter(s =>
-    `${s.first_name} ${s.last_name}`.toLowerCase().includes(search.toLowerCase())
+    `${s.first_name} ${s.last_name}`.toLowerCase().includes(debouncedSearch.toLowerCase())
   );
 
-  const counts = {
-    Present: Object.values(attendance).filter(a => a.status === 'Present').length,
-    Absent: Object.values(attendance).filter(a => a.status === 'Absent').length,
-    Excused: Object.values(attendance).filter(a => a.status === 'Excused').length,
-    Unmarked: swimmers.length - Object.keys(attendance).filter(id => swimmers.find(s => s.id === id)).length,
-  };
+  const counts = useMemo(() => {
+    const vals = Object.values(attendance);
+    const matched = Object.keys(attendance).filter(id => swimmers.find(s => s.id === id)).length;
+    return {
+      Present: vals.filter(a => a.status === 'Present').length,
+      Absent: vals.filter(a => a.status === 'Absent').length,
+      Excused: vals.filter(a => a.status === 'Excused').length,
+      Unmarked: swimmers.length - matched,
+    };
+  }, [attendance, swimmers]);
 
-  const markedCount = Object.keys(attendance).filter(id => swimmers.find(s => s.id === id)).length;
+  const markedCount = useMemo(
+    () => Object.keys(attendance).filter(id => swimmers.find(s => s.id === id)).length,
+    [attendance, swimmers]
+  );
 
   // Swimmers present on the selected date (for Session Times tab)
   const presentSwimmers = swimmers.filter(s => attendance[s.id]?.status === 'Present');
@@ -275,29 +359,49 @@ function CheckInContent({ user }) {
         <p className="text-sm mt-0.5" style={{ color: 'var(--color-primary-dark)' }}>Mark attendance and log session times</p>
       </div>
 
+      {/* Offline / pending sync indicator */}
+      {(!isOnline || pendingCount > 0) && (
+        <div className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold ${
+          !isOnline ? 'bg-amber-50 border border-amber-200 text-amber-700' : 'bg-blue-50 border border-blue-200 text-blue-700'
+        }`}>
+          <div className="flex items-center gap-2">
+            {!isOnline && <WifiOff className="h-3.5 w-3.5" />}
+            {!isOnline
+              ? `Offline mode — ${pendingCount} change${pendingCount !== 1 ? 's' : ''} queued`
+              : `${pendingCount} change${pendingCount !== 1 ? 's' : ''} waiting to sync`
+            }
+          </div>
+          {isOnline && pendingCount > 0 && (
+            <button onClick={handleManualSync} className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-100 active:bg-blue-200 transition">
+              <RefreshCw className="h-3 w-3" /> Sync now
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Date / squad / search controls — shared between tabs */}
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 sm:gap-3">
         <input type="date" value={date} onChange={e => setDate(e.target.value)}
-          className="border rounded-xl px-3 py-2 text-sm focus:outline-none bg-white" style={{ borderColor: '#ade8f4' }} />
+          className="border rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white min-h-[44px]" style={{ borderColor: '#ade8f4' }} />
         <select value={squad} onChange={e => setSquad(e.target.value)}
-          className="border rounded-xl px-3 py-2 text-sm focus:outline-none bg-white" style={{ borderColor: '#ade8f4' }}>
+          className="border rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white min-h-[44px]" style={{ borderColor: '#ade8f4' }}>
           <option value="All">All Squads</option>
           {['Beginner', 'Intermediate', 'Elite'].map(s => <option key={s}>{s}</option>)}
         </select>
         {tab === 'attendance' && (
-          <div className="flex-1 min-w-[160px] relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <div className="col-span-2 sm:flex-1 sm:min-w-[160px] relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input placeholder="Search swimmer…" value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full border rounded-xl pl-8 pr-3 py-2 text-sm focus:outline-none bg-white" style={{ borderColor: '#ade8f4' }} />
+              className="w-full border rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none bg-white min-h-[44px]" style={{ borderColor: '#ade8f4' }} />
           </div>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-[#f0fbff] p-1 rounded-xl border border-[#ade8f4] w-fit">
+      <div className="flex gap-1 bg-[#f0fbff] p-1 rounded-xl border border-[#ade8f4]">
         {[['attendance', 'Attendance'], ['times', 'Session Times']].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
-            className="px-4 py-1.5 rounded-lg text-xs font-bold transition"
+            className="flex-1 px-4 py-2.5 rounded-lg text-sm font-bold transition min-h-[44px]"
             style={{
               backgroundColor: tab === key ? 'var(--color-primary)' : 'transparent',
               color: tab === key ? 'white' : 'var(--color-primary-dark)',
@@ -310,11 +414,11 @@ function CheckInContent({ user }) {
       {/* ── ATTENDANCE TAB ─────────────────────────────────────────────── */}
       {tab === 'attendance' && (<>
         {/* Summary */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {Object.entries(counts).map(([k, v]) => (
             <div key={k} className="rounded-xl p-3 text-center bg-white border border-[#ade8f4]">
-              <div className="text-xl font-black" style={{ color: k === 'Present' ? '#0096c7' : k === 'Absent' ? '#dc2626' : k === 'Excused' ? '#d97706' : '#9ca3af' }}>{v}</div>
-              <div className="text-[10px] text-gray-500 font-medium">{k}</div>
+              <div className="text-2xl sm:text-xl font-black" style={{ color: k === 'Present' ? '#0096c7' : k === 'Absent' ? '#dc2626' : k === 'Excused' ? '#d97706' : '#9ca3af' }}>{v}</div>
+              <div className="text-xs sm:text-[10px] text-gray-500 font-medium">{k}</div>
             </div>
           ))}
         </div>
@@ -340,9 +444,8 @@ function CheckInContent({ user }) {
             {filtered.map(swimmer => {
               const att = attendance[swimmer.id];
               const currentStatus = att?.status || null;
-              const isSaving = saving[swimmer.id];
               return (
-                <div key={swimmer.id} className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-[#ade8f4] flex items-center gap-3">
+                <div key={swimmer.id} className="bg-white rounded-2xl px-3 sm:px-4 py-3 shadow-sm border border-[#ade8f4] flex items-center gap-2 sm:gap-3">
                   <div className="h-9 w-9 rounded-full flex items-center justify-center font-bold text-sm text-white flex-shrink-0" style={{ backgroundColor: 'var(--color-primary-dark)' }}>
                     {`${swimmer.first_name} ${swimmer.last_name}`.charAt(0)}
                   </div>
@@ -350,25 +453,21 @@ function CheckInContent({ user }) {
                     <p className="font-semibold text-sm truncate" style={{ color: 'var(--color-text-header)' }}>{swimmer.first_name} {swimmer.last_name}</p>
                     <p className="text-[10px] text-gray-400">{swimmer.squad}</p>
                   </div>
-                  {isSaving ? (
-                    <Loader2 className="h-5 w-5 animate-spin text-gray-300" />
-                  ) : (
-                    <div className="flex gap-1.5">
-                      {['Present', 'Absent', 'Excused'].map(status => {
-                        const cfg = STATUS_CONFIG[status];
-                        const Icon = cfg.icon;
-                        const active = currentStatus === status;
-                        return (
-                          <button key={status} onClick={() => setStatus(swimmer, status)}
-                            title={status}
-                            className="h-8 w-8 rounded-xl flex items-center justify-center transition hover:opacity-80"
-                            style={{ backgroundColor: active ? cfg.color : '#f3f4f6', color: active ? 'white' : '#9ca3af' }}>
-                            <Icon className="h-4 w-4" />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+                  <div className="flex gap-1.5">
+                    {['Present', 'Absent', 'Excused'].map(status => {
+                      const cfg = STATUS_CONFIG[status];
+                      const Icon = cfg.icon;
+                      const active = currentStatus === status;
+                      return (
+                        <button key={status} onClick={() => setStatus(swimmer, status)}
+                          title={status}
+                          className="h-11 w-11 sm:h-10 sm:w-10 rounded-xl flex items-center justify-center transition active:scale-95"
+                          style={{ backgroundColor: active ? cfg.color : '#f3f4f6', color: active ? 'white' : '#9ca3af' }}>
+                          <Icon className="h-5 w-5 sm:h-4 sm:w-4" />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
@@ -379,7 +478,7 @@ function CheckInContent({ user }) {
         {!loading && markedCount > 0 && (
           <div className="flex justify-end pt-2 pb-4">
             <button onClick={printAttendancePDF}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white transition hover:opacity-90 active:scale-95"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-white transition active:scale-95 min-h-[48px] w-full sm:w-auto justify-center"
               style={{ backgroundColor: 'var(--color-primary-dark)' }}>
               <FileDown className="h-4 w-4" /> Download Attendance PDF
             </button>
@@ -458,9 +557,9 @@ function CheckInContent({ user }) {
                     setLogForm({ swimmerId: s.id, swimmerName: `${s.first_name} ${s.last_name}` });
                     setLogData({ event: EVENTS[0], time_seconds: '', is_personal_best: false, notes: '' });
                   }}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition hover:bg-[#f0fbff]"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-semibold transition active:scale-95 active:bg-[#e0f7ff] min-h-[44px]"
                   style={{ borderColor: '#ade8f4', color: 'var(--color-text-header)' }}>
-                  <Plus className="h-3 w-3" style={{ color: 'var(--color-primary)' }} />
+                  <Plus className="h-4 w-4" style={{ color: 'var(--color-primary)' }} />
                   {s.first_name} {s.last_name}
                 </button>
               ))}
@@ -478,58 +577,97 @@ function CheckInContent({ user }) {
           ) : sessionTimes.length === 0 ? (
             <div className="text-center py-6 text-gray-400 text-xs">No times logged for this session yet.</div>
           ) : (
-            <div className="bg-white rounded-2xl border border-[#ade8f4] shadow-sm overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[#f0f0f0] bg-[#f8fcff]">
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Swimmer</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Event</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Time</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">PB</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Notes</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sessionTimes.map(rt => (
-                      <tr key={rt.id} className="border-b border-[#f0f0f0] hover:bg-[#f8fcff]">
-                        <td className="px-4 py-3 font-semibold text-xs" style={{ color: 'var(--color-text-header)' }}>
-                          {rt.swimmers ? `${rt.swimmers.first_name} ${rt.swimmers.last_name}` : '–'}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-600">{rt.event}</td>
-                        <td className="px-4 py-3 font-black text-xs" style={{ color: 'var(--color-primary)' }}>
-                          {formatTime(rt.time_seconds)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => togglePB(rt)}
-                            disabled={!!pbSaving[rt.id]}
-                            title={rt.is_personal_best ? 'Unmark PB' : 'Mark as Personal Best'}
-                            className="h-6 w-6 flex items-center justify-center rounded-lg transition disabled:opacity-40"
-                            style={{
-                              backgroundColor: rt.is_personal_best ? '#16a34a' : '#f3f4f6',
-                              color: rt.is_personal_best ? 'white' : '#9ca3af',
-                            }}
-                          >
-                            {pbSaving[rt.id]
-                              ? <Loader2 className="h-3 w-3 animate-spin" />
-                              : <Star className="h-3 w-3" fill={rt.is_personal_best ? 'currentColor' : 'none'} />
-                            }
-                          </button>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-400 max-w-[120px] truncate">{rt.notes || '–'}</td>
-                        <td className="px-4 py-3">
-                          <button onClick={() => deleteTime(rt.id)} className="text-red-400 hover:text-red-600 transition">
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <>
+              {/* Mobile card layout */}
+              <div className="space-y-2 sm:hidden">
+                {sessionTimes.map(rt => (
+                  <div key={rt.id} className="bg-white rounded-2xl p-3 border border-[#ade8f4] shadow-sm">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-bold text-sm" style={{ color: 'var(--color-text-header)' }}>
+                        {rt.swimmers ? `${rt.swimmers.first_name} ${rt.swimmers.last_name}` : '–'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => togglePB(rt)}
+                          disabled={!!pbSaving[rt.id]}
+                          className="h-9 w-9 flex items-center justify-center rounded-lg transition"
+                          style={{
+                            backgroundColor: rt.is_personal_best ? '#16a34a' : '#f3f4f6',
+                            color: rt.is_personal_best ? 'white' : '#9ca3af',
+                          }}
+                        >
+                          {pbSaving[rt.id]
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <Star className="h-4 w-4" fill={rt.is_personal_best ? 'currentColor' : 'none'} />
+                          }
+                        </button>
+                        <button onClick={() => deleteTime(rt.id)} className="h-9 w-9 flex items-center justify-center rounded-lg bg-red-50 text-red-400 active:bg-red-100">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-gray-500">{rt.event}</span>
+                      <span className="font-black text-sm" style={{ color: 'var(--color-primary)' }}>{formatTime(rt.time_seconds)}</span>
+                    </div>
+                    {rt.notes && <p className="text-[10px] text-gray-400 mt-1 truncate">{rt.notes}</p>}
+                  </div>
+                ))}
               </div>
-            </div>
+              {/* Desktop table layout */}
+              <div className="hidden sm:block bg-white rounded-2xl border border-[#ade8f4] shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#f0f0f0] bg-[#f8fcff]">
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Swimmer</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Event</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Time</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">PB</th>
+                        <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500">Notes</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sessionTimes.map(rt => (
+                        <tr key={rt.id} className="border-b border-[#f0f0f0] hover:bg-[#f8fcff]">
+                          <td className="px-4 py-3 font-semibold text-xs" style={{ color: 'var(--color-text-header)' }}>
+                            {rt.swimmers ? `${rt.swimmers.first_name} ${rt.swimmers.last_name}` : '–'}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-gray-600">{rt.event}</td>
+                          <td className="px-4 py-3 font-black text-xs" style={{ color: 'var(--color-primary)' }}>
+                            {formatTime(rt.time_seconds)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => togglePB(rt)}
+                              disabled={!!pbSaving[rt.id]}
+                              title={rt.is_personal_best ? 'Unmark PB' : 'Mark as Personal Best'}
+                              className="h-6 w-6 flex items-center justify-center rounded-lg transition disabled:opacity-40"
+                              style={{
+                                backgroundColor: rt.is_personal_best ? '#16a34a' : '#f3f4f6',
+                                color: rt.is_personal_best ? 'white' : '#9ca3af',
+                              }}
+                            >
+                              {pbSaving[rt.id]
+                                ? <Loader2 className="h-3 w-3 animate-spin" />
+                                : <Star className="h-3 w-3" fill={rt.is_personal_best ? 'currentColor' : 'none'} />
+                              }
+                            </button>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-gray-400 max-w-[120px] truncate">{rt.notes || '–'}</td>
+                          <td className="px-4 py-3">
+                            <button onClick={() => deleteTime(rt.id)} className="text-red-400 hover:text-red-600 transition">
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
         </div>
       </>)}

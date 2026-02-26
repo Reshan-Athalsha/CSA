@@ -2,18 +2,12 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/api/supabaseClient';
 import collections from '@/api/supabaseClient';
 import { localCache } from '@/lib/cache';
+import { formatTime } from '@/utils';
 import {
   Plus, Calendar, MapPin, Edit2, Trash2, Loader2, X,
   ChevronDown, ChevronUp, Star, TrendingDown,
 } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
-
-function formatTime(secs) {
-  if (!secs) return '–';
-  const m = Math.floor(secs / 60);
-  const s = (secs % 60).toFixed(2).padStart(5, '0');
-  return m > 0 ? `${m}:${s}` : `${parseFloat(s).toFixed(2)}s`;
-}
 
 // ── Per-meet expandable results panel ───────────────────────────────────────
 function MeetResults({ meet, isAdmin }) {

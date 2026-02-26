@@ -121,6 +121,18 @@ export const collections = {
       if (error) throw error;
       return data || [];
     },
+
+    /** Fetch attendance for multiple swimmer IDs in a single query */
+    findBySwimmerIds: async (ids) => {
+      if (!ids.length) return [];
+      const { data, error } = await supabase
+        .from('attendance')
+        .select('*, swimmers(*)')
+        .in('swimmer_id', ids)
+        .order('date', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
     
     findById: async (id) => {
       const { data, error } = await supabase
@@ -226,6 +238,18 @@ export const collections = {
       });
       
       const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+
+    /** Fetch race times for multiple swimmer IDs in a single query */
+    findBySwimmerIds: async (ids) => {
+      if (!ids.length) return [];
+      const { data, error } = await supabase
+        .from('racetimes')
+        .select('*, swimmers(*), meets(*)')
+        .in('swimmer_id', ids)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
     },

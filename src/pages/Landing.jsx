@@ -37,18 +37,6 @@ export default function Landing() {
   return (
     <div className="min-h-screen font-sans" style={{ backgroundColor: '#03045e' }}>
       <style>{`
-        :root {
-          --color-bg-primary: #caf0f8;
-          --color-bg-secondary: #ade8f4;
-          --color-card: #90e0ef;
-          --color-accent-light: #48cae4;
-          --color-accent-main: #00b4d8;
-          --color-primary: #0096c7;
-          --color-primary-dark: #0077b6;
-          --color-text-header: #023e8a;
-          --color-text-main: #03045e;
-        }
-
         @keyframes float-up {
           0%   { transform: translateY(0)   scale(1);   opacity: 0.7; }
           100% { transform: translateY(-120px) scale(1.3); opacity: 0; }
@@ -84,14 +72,33 @@ export default function Landing() {
           border: 1px solid rgba(255,255,255,0.25);
           animation: float-up linear infinite;
           pointer-events: none;
+          will-change: transform, opacity;
         }
         .coach-photo {
           animation: shimmer-border 3s ease-in-out infinite;
+          will-change: box-shadow, border-color;
+        }
+        /* Only run the expensive gradient animation on larger screens with a faster GPU.
+           On mobile (3G / low-end devices) we fall back to a static gradient. */
+        @media (min-width: 768px) {
+          .hero-grad {
+            background: linear-gradient(160deg, #03045e 0%, #0077b6 50%, #00b4d8 100%);
+            background-size: 200% 200%;
+            animation: wave-bg 10s ease infinite;
+          }
         }
         .hero-grad {
           background: linear-gradient(160deg, #03045e 0%, #0077b6 50%, #00b4d8 100%);
-          background-size: 200% 200%;
-          animation: wave-bg 10s ease infinite;
+        }
+        /* Respect the system preference — kill all decorative motion */
+        @media (prefers-reduced-motion: reduce) {
+          .bubble, .coach-photo, .hero-grad, [style*="animation"] {
+            animation: none !important;
+            transition: none !important;
+          }
+          .hero-grad {
+            background: linear-gradient(160deg, #03045e 0%, #0077b6 50%, #00b4d8 100%);
+          }
         }
       `}</style>
 
@@ -109,21 +116,17 @@ export default function Landing() {
       </nav>
 
       {/* ═══ HERO ═══ */}
-      <section className="hero-grad relative min-h-screen flex flex-col items-center justify-center px-6 pt-20 pb-28 overflow-hidden">
+      <section className="hero-grad relative min-h-screen flex flex-col items-center justify-center px-6 pt-20 pb-28 overflow-hidden" style={{ contain: 'layout paint' }}>
         {/* glow orbs */}
         <div className="absolute top-1/4 left-1/5 w-96 h-96 rounded-full opacity-15 blur-3xl pointer-events-none" style={{ background: '#00b4d8' }} />
         <div className="absolute bottom-1/3 right-1/4 w-80 h-80 rounded-full opacity-15 blur-3xl pointer-events-none" style={{ background: '#48cae4' }} />
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-10 blur-2xl pointer-events-none" style={{ background: '#caf0f8' }} />
 
-        {/* floating bubbles */}
+        {/* floating bubbles — kept to 4 so lower-end phones don't stutter */}
         {[
           { size: 18, left: '12%',  bottom: '18%', dur: '6s',  delay: '0s'  },
-          { size: 10, left: '22%',  bottom: '30%', dur: '8s',  delay: '1s'  },
           { size: 24, left: '75%',  bottom: '22%', dur: '7s',  delay: '2s'  },
-          { size: 14, left: '85%',  bottom: '40%', dur: '9s',  delay: '0.5s'},
           { size: 8,  left: '50%',  bottom: '15%', dur: '5s',  delay: '3s'  },
           { size: 20, left: '60%',  bottom: '35%', dur: '10s', delay: '1.5s'},
-          { size: 12, left: '35%',  bottom: '10%', dur: '7.5s',delay: '4s'  },
         ].map((b, i) => (
           <span key={i} className="bubble" style={{
             width: b.size, height: b.size,
@@ -196,13 +199,18 @@ export default function Landing() {
           <div className="flex flex-col lg:flex-row gap-12 items-center bg-white/5 border border-white/10 rounded-3xl p-8 sm:p-12 backdrop-blur-md shadow-2xl">
             {/* Photo + badges */}
             <div className="flex-shrink-0 flex flex-col items-center gap-5">
-              <div className="relative" style={{ animation: 'drift 6s ease-in-out infinite' }}>
+              <div className="relative" style={{ animation: 'drift 6s ease-in-out infinite', willChange: 'transform' }}>
                 {/* multiple glow rings */}
                 <div className="absolute inset-0 rounded-full opacity-30 blur-2xl" style={{ background: '#00b4d8', transform: 'scale(1.3)' }} />
                 <div className="absolute inset-0 rounded-full opacity-15 blur-3xl" style={{ background: '#48cae4', transform: 'scale(1.6)' }} />
                 <img
                   src="/coach.png"
                   alt="Head Coach Indika Hewage"
+                  loading="lazy"
+                  decoding="async"
+                  width="256"
+                  height="256"
+                  fetchPriority="low"
                   className="coach-photo relative w-52 h-52 sm:w-64 sm:h-64 rounded-full object-cover border-4 shadow-2xl"
                   style={{ borderColor: '#00b4d8' }}
                 />

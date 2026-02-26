@@ -96,5 +96,24 @@
   body {
     background-color: var(--color-bg-primary);
     color: var(--color-text-main);
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Mobile touch helpers */
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Prevent iOS zoom on input focus (keep font-size >= 16px) */
+@media screen and (max-width: 639px) {
+  select, input[type="date"] {
+    font-size: 16px !important;
   }
 }

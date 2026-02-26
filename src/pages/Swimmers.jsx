@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import collections from '@/api/supabaseClient';
 import { localCache } from '@/lib/cache';
+import useDebouncedValue from '@/hooks/useDebouncedValue';
 import { Plus, Search, Edit2, Trash2, Loader2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
 
@@ -109,6 +110,7 @@ function SwimmersContent({ user }) {
   const [swimmers, setSwimmers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 200);
   const [squadFilter, setSquadFilter] = useState('All');
   const [modal, setModal] = useState(null); // null | 'add' | swimmer obj
   const [deleting, setDeleting] = useState(null);
@@ -160,7 +162,7 @@ function SwimmersContent({ user }) {
   const filtered = swimmers.filter(s => {
     const fullName = `${s.first_name} ${s.last_name}`.toLowerCase();
     return (squadFilter === 'All' || s.squad === squadFilter) &&
-      fullName.includes(search.toLowerCase());
+      fullName.includes(debouncedSearch.toLowerCase());
   });
 
   const isAdmin = user?.role === 'Admin';
@@ -178,7 +180,7 @@ function SwimmersContent({ user }) {
         </div>
         {isAdmin && (
           <button onClick={() => setModal('add')}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold shadow-sm transition hover:opacity-90"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-bold shadow-sm transition active:scale-95 min-h-[44px]"
             style={{ backgroundColor: '#0096c7' }}>
             <Plus className="h-4 w-4" /> Add Swimmer
           </button>
@@ -187,12 +189,12 @@ function SwimmersContent({ user }) {
 
       <div className="flex flex-wrap gap-3">
         <div className="relative flex-1 min-w-[180px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input placeholder="Search swimmers…" value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full border rounded-xl pl-8 pr-3 py-2 text-sm focus:outline-none bg-white" style={{ borderColor: '#ade8f4' }} />
+            className="w-full border rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none bg-white min-h-[44px]" style={{ borderColor: '#ade8f4' }} />
         </div>
         <select value={squadFilter} onChange={e => setSquadFilter(e.target.value)}
-          className="border rounded-xl px-3 py-2 text-sm focus:outline-none bg-white" style={{ borderColor: '#ade8f4' }}>
+          className="border rounded-xl px-3 py-2.5 text-sm focus:outline-none bg-white min-h-[44px]" style={{ borderColor: '#ade8f4' }}>
           <option value="All">All Squads</option>
           {SQUADS.map(s => <option key={s}>{s}</option>)}
         </select>
@@ -243,12 +245,12 @@ function SwimmersContent({ user }) {
               </div>
               {isAdmin && (
                 <div className="flex gap-2 mt-3 pt-3 border-t border-[#f0f0f0]">
-                  <button onClick={() => setModal(swimmer)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold border hover:bg-[#f0fbff] transition"
+                  <button onClick={() => setModal(swimmer)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold border active:bg-[#f0fbff] transition min-h-[44px]"
                     style={{ borderColor: '#ade8f4', color: 'var(--color-primary)' }}>
                     <Edit2 className="h-3.5 w-3.5" /> Edit
                   </button>
                   <button onClick={() => handleDelete(swimmer.id)} disabled={deleting === swimmer.id}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-semibold border hover:bg-red-50 transition text-red-500 border-red-200 disabled:opacity-40">
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-semibold border active:bg-red-50 transition text-red-500 border-red-200 disabled:opacity-40 min-h-[44px]">
                     {deleting === swimmer.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><Trash2 className="h-3.5 w-3.5" /> Delete</>}
                   </button>
                 </div>

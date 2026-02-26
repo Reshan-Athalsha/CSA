@@ -333,7 +333,7 @@ function AppSettingsContent() {
       )}
 
       {/* User List */}
-      <div className="bg-white rounded-2xl p-6 border border-[#ade8f4] shadow-sm">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-[#ade8f4] shadow-sm">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: 'var(--color-text-header)' }}>
             <Users className="h-4 w-4" style={{ color: 'var(--color-primary)' }} /> Users ({users.length})
@@ -343,16 +343,16 @@ function AppSettingsContent() {
               placeholder="Search…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="border rounded-xl px-3 py-1.5 text-xs focus:outline-none w-40"
+              className="border rounded-xl px-3 py-2 text-xs focus:outline-none w-32 sm:w-40 min-h-[40px]"
               style={{ borderColor: '#ade8f4' }}
             />
-            <button onClick={loadUsers} className="h-8 w-8 flex items-center justify-center rounded-xl border hover:bg-[#f0fbff] transition" style={{ borderColor: '#ade8f4' }}>
+            <button onClick={loadUsers} className="h-10 w-10 flex items-center justify-center rounded-xl border active:bg-[#f0fbff] transition" style={{ borderColor: '#ade8f4' }}>
               <RefreshCw className="h-3.5 w-3.5" style={{ color: 'var(--color-primary)' }} />
             </button>
             <button onClick={() => setModal('add')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-bold shadow-sm"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-white text-xs font-bold shadow-sm min-h-[40px]"
               style={{ backgroundColor: '#0096c7' }}>
-              <Plus className="h-3.5 w-3.5" /> Add User
+              <Plus className="h-3.5 w-3.5" /> Add
             </button>
           </div>
         </div>
@@ -386,20 +386,20 @@ function AppSettingsContent() {
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       onClick={() => setModal({ type: 'edit', user: u })}
-                      className="h-8 w-8 flex items-center justify-center rounded-lg border hover:bg-blue-50 transition"
+                      className="h-10 w-10 flex items-center justify-center rounded-lg border active:bg-blue-50 transition"
                       style={{ borderColor: '#ade8f4' }}
                       title="Edit user"
                     >
-                      <Edit2 className="h-3.5 w-3.5" style={{ color: 'var(--color-primary)' }} />
+                      <Edit2 className="h-4 w-4" style={{ color: 'var(--color-primary)' }} />
                     </button>
                     <button
                       onClick={() => setModal({ type: 'delete', user: u })}
                       disabled={isCurrentUser}
-                      className="h-8 w-8 flex items-center justify-center rounded-lg border hover:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                      className="h-10 w-10 flex items-center justify-center rounded-lg border active:bg-red-50 transition disabled:opacity-30 disabled:cursor-not-allowed"
                       style={{ borderColor: '#ade8f4' }}
                       title={isCurrentUser ? "Can't delete yourself" : "Remove user"}
                     >
-                      <Trash2 className="h-3.5 w-3.5 text-red-400" />
+                      <Trash2 className="h-4 w-4 text-red-400" />
                     </button>
                   </div>
                 </div>
@@ -410,7 +410,7 @@ function AppSettingsContent() {
       </div>
 
       {/* Role Guide */}
-      <div className="bg-white rounded-2xl p-6 border border-[#ade8f4] shadow-sm">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-[#ade8f4] shadow-sm">
         <h2 className="font-bold text-sm mb-4 flex items-center gap-2" style={{ color: 'var(--color-text-header)' }}>
           <Shield className="h-4 w-4" style={{ color: 'var(--color-primary)' }} /> Role Permissions
         </h2>
@@ -421,8 +421,8 @@ function AppSettingsContent() {
             { role: 'Parent', label: 'Parent', perms: "View linked child's attendance, race times, and academy notices." },
             { role: 'Swimmer', label: 'Swimmer', perms: 'View own stats, personal bests, and notices.' },
           ].map(({ role, label, perms }) => (
-            <div key={role} className="flex gap-3 p-3 rounded-xl bg-[#f8fcff]">
-              <div className="font-bold w-36 flex-shrink-0" style={{ color: 'var(--color-primary-dark)' }}>{label}</div>
+            <div key={role} className="flex flex-col sm:flex-row gap-1 sm:gap-3 p-3 rounded-xl bg-[#f8fcff]">
+              <div className="font-bold sm:w-36 flex-shrink-0" style={{ color: 'var(--color-primary-dark)' }}>{label}</div>
               <div className="text-gray-500">{perms}</div>
             </div>
           ))}

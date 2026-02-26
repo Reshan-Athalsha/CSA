@@ -1,21 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, memo } from 'react';
 import collections from '@/api/supabaseClient';
 import { localCache } from '@/lib/cache';
-import { Users, ClipboardCheck, Trophy, Bell, Loader2, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatTime } from '@/utils';
+import { Users, ClipboardCheck, Trophy, Bell, TrendingDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import RoleGuard from '@/components/RoleGuard';
-
-function formatTime(secs) {
-  if (!secs) return '–';
-  const m = Math.floor(secs / 60);
-  const s = (secs % 60).toFixed(2).padStart(5, '0');
-  return m > 0 ? `${m}:${s}` : `${parseFloat(s).toFixed(2)}s`;
-}
 
 const STATUS_COLORS = { Present: '#0096c7', Absent: '#dc2626', Excused: '#d97706' };
 
 // ── Progress Chart ────────────────────────────────────────────────────────────
-function ProgressChart({ raceTimes }) {
+const ProgressChart = memo(function ProgressChart({ raceTimes }) {
   const events = [...new Set(raceTimes.map(r => r.event))];
   const [selectedEvent, setSelectedEvent] = useState(events[0] || null);
 
@@ -128,9 +122,9 @@ function ProgressChart({ raceTimes }) {
       </div>
     </div>
   );
-}
+});
 
-function AttendanceCalendar({ records }) {
+const AttendanceCalendar = memo(function AttendanceCalendar({ records }) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
@@ -223,7 +217,7 @@ function AttendanceCalendar({ records }) {
       </div>
     </div>
   );
-}
+});
 
 export default function FamilyDashboard() {
   return (
@@ -271,15 +265,13 @@ function FamilyContent({ user }) {
           return;
         }
 
-        // SECURITY: query each swimmer individually — never fetch all records then filter client-side
-        const [attArrays, rtArrays, nts] = await Promise.all([
-          Promise.all(swimmerIds.map(id => collections.attendance.findAll({ swimmer_id: id }))),
-          Promise.all(swimmerIds.map(id => collections.racetimes.findAll({ swimmer_id: id }))),
+        // OPTIMIZED: single query per table using .in() instead of N separate requests
+        const [att, rt, nts] = await Promise.all([
+          collections.attendance.findBySwimmerIds(swimmerIds),
+          collections.racetimes.findBySwimmerIds(swimmerIds),
           collections.notices.findAll(),
         ]);
 
-        const att = attArrays.flat();
-        const rt = rtArrays.flat();
         const notices = nts.slice(0, 5);
 
         setSwimmers(mySwimmers);
@@ -331,11 +323,6 @@ function FamilyContent({ user }) {
   raceTimes.forEach(rt => {
     const key = `${rt.swimmer_id}-${rt.event}`;
     if (!pbMap[key] || rt.time_seconds < pbMap[key]) pbMap[key] = { time: rt.time_seconds, event: rt.event, date: rt.date };
-  });
-
-  const last30days = [...Array(30)].map((_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
   });
 
   return (

@@ -3,7 +3,7 @@ import { createPageUrl } from './utils';
 import useCurrentUser from '@/components/useCurrentUser';
 import { useAuth } from '@/lib/AuthContext';
 import { useState } from 'react';
-import { Menu, X, Home, Users, ClipboardCheck, Trophy, Bell, BarChart3, LogOut, Settings, Globe, Heart } from 'lucide-react';
+import { Menu, X, Users, ClipboardCheck, Trophy, Bell, BarChart3, LogOut, Settings, Globe, Heart, Home } from 'lucide-react';
 
 const ROLE_NAV = {
   Admin: [
@@ -48,19 +48,6 @@ export default function Layout({ children, currentPageName }) {
   if (isPublicPage || (!loading && !isAuthenticated)) {
     return (
       <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-        <style>{`
-          :root {
-            --color-bg-primary: #caf0f8;
-            --color-bg-secondary: #ade8f4;
-            --color-card: #90e0ef;
-            --color-accent-light: #48cae4;
-            --color-accent-main: #00b4d8;
-            --color-primary: #0096c7;
-            --color-primary-dark: #0077b6;
-            --color-text-header: #023e8a;
-            --color-text-main: #03045e;
-          }
-        `}</style>
         {children}
       </div>
     );
@@ -69,19 +56,6 @@ export default function Layout({ children, currentPageName }) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-        <style>{`
-          :root {
-            --color-bg-primary: #caf0f8;
-            --color-bg-secondary: #ade8f4;
-            --color-card: #90e0ef;
-            --color-accent-light: #48cae4;
-            --color-accent-main: #00b4d8;
-            --color-primary: #0096c7;
-            --color-primary-dark: #0077b6;
-            --color-text-header: #023e8a;
-            --color-text-main: #03045e;
-          }
-        `}</style>
         <div className="flex flex-col items-center gap-3">
           <div className="h-8 w-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--color-primary)', borderTopColor: 'transparent' }} />
           <span className="text-sm font-medium" style={{ color: 'var(--color-text-main)' }}>Loading…</span>
@@ -94,20 +68,6 @@ export default function Layout({ children, currentPageName }) {
 
   return (
     <div className="min-h-screen flex" style={{ backgroundColor: 'var(--color-bg-primary)' }}>
-      <style>{`
-        :root {
-          --color-bg-primary: #caf0f8;
-          --color-bg-secondary: #ade8f4;
-          --color-card: #90e0ef;
-          --color-accent-light: #48cae4;
-          --color-accent-main: #00b4d8;
-          --color-primary: #0096c7;
-          --color-primary-dark: #0077b6;
-          --color-text-header: #023e8a;
-          --color-text-main: #03045e;
-        }
-      `}</style>
-
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-30 bg-black/30 lg:hidden" onClick={() => setSidebarOpen(false)} />
@@ -115,7 +75,7 @@ export default function Layout({ children, currentPageName }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed z-40 top-0 left-0 h-full w-64 transform transition-transform duration-200 ease-out lg:translate-x-0 lg:static lg:z-auto ${
+        className={`fixed z-40 top-0 left-0 h-full w-64 transform transition-transform duration-200 ease-out will-change-transform lg:translate-x-0 lg:static lg:z-auto ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{ backgroundColor: 'var(--color-bg-secondary)' }}
@@ -146,7 +106,7 @@ export default function Layout({ children, currentPageName }) {
                   key={item.page}
                   to={createPageUrl(item.page)}
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                  className={`flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all min-h-[44px] ${
                     isActive ? 'text-white shadow-sm' : 'hover:bg-white/40'
                   }`}
                   style={isActive
@@ -154,7 +114,7 @@ export default function Layout({ children, currentPageName }) {
                     : { color: 'var(--color-text-header)' }
                   }
                 >
-                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <Icon className="h-5 w-5 flex-shrink-0" />
                   {item.label}
                 </Link>
               );
@@ -177,7 +137,7 @@ export default function Layout({ children, currentPageName }) {
               </div>
               <button
                 onClick={logout}
-                className="p-1.5 rounded-md hover:bg-white/40 transition"
+                className="p-2 rounded-lg hover:bg-white/40 transition min-h-[44px] min-w-[44px] flex items-center justify-center"
                 title="Logout"
               >
                 <LogOut className="h-4 w-4" style={{ color: 'var(--color-text-header)' }} />
@@ -190,17 +150,17 @@ export default function Layout({ children, currentPageName }) {
       {/* Main content */}
       <main className="flex-1 flex flex-col min-h-screen overflow-x-hidden">
         {/* Top bar (mobile) */}
-        <header className="lg:hidden flex items-center justify-between px-4 py-3 border-b bg-white/60 backdrop-blur-sm" style={{ borderColor: 'var(--color-accent-light)' }}>
-          <button onClick={() => setSidebarOpen(true)} className="p-1">
+        <header className="lg:hidden flex items-center justify-between px-4 py-3 border-b bg-white/60 backdrop-blur-sm sticky top-0 z-20" style={{ borderColor: 'var(--color-accent-light)' }}>
+          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-1 rounded-lg active:bg-black/5 min-h-[44px] min-w-[44px] flex items-center justify-center">
             <Menu className="h-5 w-5" style={{ color: 'var(--color-text-header)' }} />
           </button>
-          <span className="font-semibold text-sm" style={{ color: 'var(--color-text-header)' }}>
-            Ceylon Swimming Academy
+          <span className="font-bold text-sm" style={{ color: 'var(--color-text-header)' }}>
+            {navItems.find(i => i.page === currentPageName)?.label || 'CSA'}
           </span>
-          <div className="w-6" />
+          <div className="w-10" />
         </header>
 
-        <div className="flex-1 p-4 lg:p-6">
+        <div className="flex-1 p-3 sm:p-4 lg:p-6">
           {children}
         </div>
       </main>

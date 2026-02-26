@@ -1,68 +1,32 @@
 /**
  * pages.config.js - Page routing configuration
- * 
- * This file is AUTO-GENERATED. Do not add imports or modify PAGES manually.
- * Pages are auto-registered when you create files in the ./pages/ folder.
- * 
+ *
+ * Pages are lazy-loaded (React.lazy) so each page is a separate JS chunk.
+ * This dramatically reduces the initial bundle size on slow 3G connections —
+ * only the code for the current page is downloaded on first load.
+ *
  * THE ONLY EDITABLE VALUE: mainPage
- * This controls which page is the landing page (shown when users visit the app).
- * 
- * Example file structure:
- * 
- *   import HomePage from './pages/HomePage';
- *   import Dashboard from './pages/Dashboard';
- *   import Settings from './pages/Settings';
- *   
- *   export const PAGES = {
- *       "HomePage": HomePage,
- *       "Dashboard": Dashboard,
- *       "Settings": Settings,
- *   }
- *   
- *   export const pagesConfig = {
- *       mainPage: "HomePage",
- *       Pages: PAGES,
- *   };
- * 
- * Example with Layout (wraps all pages):
- *
- *   import Home from './pages/Home';
- *   import Settings from './pages/Settings';
- *   import __Layout from './Layout.jsx';
- *
- *   export const PAGES = {
- *       "Home": Home,
- *       "Settings": Settings,
- *   }
- *
- *   export const pagesConfig = {
- *       mainPage: "Home",
- *       Pages: PAGES,
- *       Layout: __Layout,
- *   };
- *
- * To change the main page from HomePage to Dashboard, use find_replace:
- *   Old: mainPage: "HomePage",
- *   New: mainPage: "Dashboard",
- *
- * The mainPage value must match a key in the PAGES object exactly.
+ * Controls which page is the landing page (shown at "/").
+ * The value must match a key in the PAGES object exactly.
  */
-import Landing from './pages/Landing';
-import Login from './pages/Login';
-import Signup from './pages/Signup';
-import AdminDashboard from './pages/AdminDashboard';
-import PoolsideCheckIn from './pages/PoolsideCheckIn';
-import FamilyDashboard from './pages/FamilyDashboard';
-import Swimmers from './pages/Swimmers';
-import Meets from './pages/Meets';
-import RaceTimes from './pages/RaceTimes';
-import Notices from './pages/Notices';
-import SwimmerStats from './pages/SwimmerStats';
-import TrialRequests from './pages/TrialRequests';
-import UserApproval from './pages/UserApproval';
-import AppSettings from './pages/AppSettings';
-import ParentLinking from './pages/ParentLinking';
+import { lazy } from 'react';
 import __Layout from './Layout.jsx';
+
+const Landing        = lazy(() => import('./pages/Landing'));
+const Login          = lazy(() => import('./pages/Login'));
+const Signup         = lazy(() => import('./pages/Signup'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const PoolsideCheckIn= lazy(() => import('./pages/PoolsideCheckIn'));
+const FamilyDashboard= lazy(() => import('./pages/FamilyDashboard'));
+const Swimmers       = lazy(() => import('./pages/Swimmers'));
+const Meets          = lazy(() => import('./pages/Meets'));
+const RaceTimes      = lazy(() => import('./pages/RaceTimes'));
+const Notices        = lazy(() => import('./pages/Notices'));
+const SwimmerStats   = lazy(() => import('./pages/SwimmerStats'));
+const TrialRequests  = lazy(() => import('./pages/TrialRequests'));
+const UserApproval   = lazy(() => import('./pages/UserApproval'));
+const AppSettings    = lazy(() => import('./pages/AppSettings'));
+const ParentLinking  = lazy(() => import('./pages/ParentLinking'));
 
 
 export const PAGES = {

@@ -14,6 +14,10 @@
     <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
     <link rel="manifest" href="/manifest.json" />
     <title>Ceylon Swimming Academy (CSA)</title>
+    <!-- Warm up the Supabase connection before JS even starts — saves a full
+         RTT on slow 3G where each round-trip costs 200-400 ms -->
+    <link rel="preconnect" href="https://supabase.co" />
+    <link rel="dns-prefetch" href="https://supabase.co" />
   </head>
   <body>
     <div id="root"></div>

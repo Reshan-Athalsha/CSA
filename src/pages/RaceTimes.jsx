@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import collections, { supabase } from '@/api/supabaseClient';
 import { localCache } from '@/lib/cache';
+import { formatTime } from '@/utils';
+import useDebouncedValue from '@/hooks/useDebouncedValue';
 import { Plus, Trophy, Search, Loader2, X, TrendingDown, Star } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
 
@@ -11,13 +13,6 @@ const EVENTS = [
   '50m Butterfly', '100m Butterfly', '200m Butterfly',
   '200m Individual Medley', '400m Individual Medley'
 ];
-
-function formatTime(secs) {
-  if (!secs) return '–';
-  const m = Math.floor(secs / 60);
-  const s = (secs % 60).toFixed(2).padStart(5, '0');
-  return m > 0 ? `${m}:${s}` : `${parseFloat(s).toFixed(2)}s`;
-}
 
 function RaceTimeModal({ onClose, onSave, onReplace, onRemove, swimmers, meets }) {
   const [form, setForm] = useState({
@@ -145,6 +140,7 @@ function RaceTimesContent({ user }) {
   const [meets, setMeets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 200);
   const [eventFilter, setEventFilter] = useState('All');
   const [showModal, setShowModal] = useState(false);
   const [pbSaving, setPbSaving] = useState({});
@@ -207,7 +203,7 @@ function RaceTimesContent({ user }) {
   const filtered = raceTimes.filter(rt => {
     const sName = rt.swimmers ? `${rt.swimmers.first_name} ${rt.swimmers.last_name}` : '';
     return (eventFilter === 'All' || rt.event === eventFilter) &&
-      sName.toLowerCase().includes(search.toLowerCase());
+      sName.toLowerCase().includes(debouncedSearch.toLowerCase());
   });
 
   return (

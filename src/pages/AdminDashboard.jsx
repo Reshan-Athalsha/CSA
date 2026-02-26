@@ -1,22 +1,22 @@
 import { useState, useEffect } from 'react';
 import collections from '@/api/supabaseClient';
 import { localCache } from '@/lib/cache';
-import { Users, ClipboardCheck, Trophy, Bell, TrendingUp, Calendar, AlertCircle } from 'lucide-react';
+import { Users, ClipboardCheck, Trophy, Bell, Calendar, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
 import RoleGuard from '@/components/RoleGuard';
 
 function StatCard({ icon: Icon, label, value, color, loading }) {
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-[#ade8f4] flex items-center gap-4">
-      <div className="h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color + '22' }}>
-        <Icon className="h-6 w-6" style={{ color }} />
+    <div className="bg-white rounded-2xl p-3 sm:p-5 shadow-sm border border-[#ade8f4] flex items-center gap-3 sm:gap-4">
+      <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: color + '22' }}>
+        <Icon className="h-5 w-5 sm:h-6 sm:w-6" style={{ color }} />
       </div>
       <div>
-        <div className="text-2xl font-black" style={{ color: 'var(--color-text-header)' }}>
-          {loading ? <div className="h-7 w-12 bg-gray-200 rounded animate-pulse" /> : value}
+        <div className="text-xl sm:text-2xl font-black" style={{ color: 'var(--color-text-header)' }}>
+          {loading ? <div className="h-6 w-10 bg-gray-200 rounded animate-pulse" /> : value}
         </div>
-        <div className="text-xs text-gray-500 font-medium">{label}</div>
+        <div className="text-[10px] sm:text-xs text-gray-500 font-medium">{label}</div>
       </div>
     </div>
   );
@@ -199,7 +199,7 @@ function AdminDashboardContent() {
           { label: 'Log Race Times', page: 'RaceTimes', icon: Trophy, color: '#48cae4' },
         ].map(({ label, page, icon: Icon, color }) => (
           <Link key={page} to={createPageUrl(page)}
-            className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-white border border-[#ade8f4] shadow-sm hover:shadow-md transition hover:-translate-y-0.5 text-center">
+            className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-white border border-[#ade8f4] shadow-sm active:scale-95 transition text-center min-h-[80px] justify-center">
             <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: color + '22' }}>
               <Icon className="h-5 w-5" style={{ color }} />
             </div>
