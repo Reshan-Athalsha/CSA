@@ -3,7 +3,9 @@ import { supabase } from '@/api/supabaseClient';
 import collections from '@/api/supabaseClient';
 import { formatTime } from '@/utils';
 import useDebouncedValue from '@/hooks/useDebouncedValue';
-import { CheckCircle, XCircle, Clock, Search, Loader2, FileDown, Plus, Star, TrendingDown, X, WifiOff, RefreshCw } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Search, Loader2, FileDown, Plus, Star, TrendingDown, X, WifiOff, RefreshCw, Send } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import RoleGuard from '@/components/RoleGuard';
 import { localCache } from '@/lib/cache';
 import { offlineQueue } from '@/lib/offlineQueue';
@@ -294,62 +296,119 @@ function CheckInContent({ user }) {
   // Swimmers present on the selected date (for Session Times tab)
   const presentSwimmers = swimmers.filter(s => attendance[s.id]?.status === 'Present');
 
-  function printAttendancePDF() {
+  const WHATSAPP_NUMBER = '94787816666'; // personal number (no + prefix for wa.me)
+
+  function generateAttendancePDF() {
     const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-GB', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
     });
 
-    const rows = swimmers.map(s => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(2, 62, 138); // #023e8a
+    doc.text('Ceylon Swimming Academy', 14, 20);
+    doc.setFontSize(13);
+    doc.setTextColor(80, 80, 80);
+    doc.text('Attendance Report', 14, 28);
+
+    // Date & squad line
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    const squadLabel = squad !== 'All' ? ` — ${squad} Squad` : '';
+    doc.text(`${dateLabel}${squadLabel}`, 14, 36);
+
+    // Summary chips
+    const summaryY = 44;
+    doc.setFontSize(9);
+    const summaryItems = [
+      { label: `Present: ${counts.Present}`, color: [0, 150, 199] },
+      { label: `Absent: ${counts.Absent}`, color: [220, 38, 38] },
+      { label: `Excused: ${counts.Excused}`, color: [217, 119, 6] },
+      { label: `Unmarked: ${counts.Unmarked}`, color: [156, 163, 175] },
+    ];
+    let chipX = 14;
+    summaryItems.forEach(item => {
+      doc.setTextColor(...item.color);
+      doc.setFont(undefined, 'bold');
+      doc.text(item.label, chipX, summaryY);
+      chipX += doc.getTextWidth(item.label) + 12;
+    });
+
+    // Table
+    const tableRows = swimmers.map((s, i) => {
       const att = attendance[s.id];
       const status = att?.status || 'Unmarked';
-      const color = status === 'Present' ? '#0096c7' : status === 'Absent' ? '#dc2626' : status === 'Excused' ? '#d97706' : '#9ca3af';
-      return `
-        <tr>
-          <td>${s.first_name} ${s.last_name}</td>
-          <td>${s.squad || '—'}</td>
-          <td style="color:${color};font-weight:600">${status}</td>
-        </tr>`;
-    }).join('');
+      return [i + 1, `${s.first_name} ${s.last_name}`, s.squad || '—', status];
+    });
 
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Attendance – ${dateLabel}</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 32px; color: #111; }
-    h1 { font-size: 20px; margin-bottom: 4px; color: #023e8a; }
-    p.sub { font-size: 13px; color: #555; margin-bottom: 20px; }
-    .summary { display: flex; gap: 16px; margin-bottom: 24px; }
-    .chip { padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th { background: #023e8a; color: white; text-align: left; padding: 8px 12px; }
-    td { padding: 7px 12px; border-bottom: 1px solid #e5e7eb; }
-    tr:nth-child(even) td { background: #f8fafc; }
-    @media print { body { padding: 16px; } }
-  </style>
-</head>
-<body>
-  <h1>Ceylon Swimming Academy — Attendance</h1>
-  <p class="sub">${dateLabel}${squad !== 'All' ? ' &nbsp;·&nbsp; ' + squad + ' Squad' : ''}</p>
-  <div class="summary">
-    <span class="chip" style="background:#e0f7ff;color:#0096c7">Present: ${counts.Present}</span>
-    <span class="chip" style="background:#fef2f2;color:#dc2626">Absent: ${counts.Absent}</span>
-    <span class="chip" style="background:#fffbeb;color:#d97706">Excused: ${counts.Excused}</span>
-    <span class="chip" style="background:#f3f4f6;color:#6b7280">Unmarked: ${counts.Unmarked}</span>
-  </div>
-  <table>
-    <thead><tr><th>Swimmer</th><th>Squad</th><th>Status</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-</body>
-</html>`;
+    autoTable(doc, {
+      startY: summaryY + 8,
+      head: [['#', 'Swimmer', 'Squad', 'Status']],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [2, 62, 138],
+        textColor: 255,
+        fontStyle: 'bold',
+        fontSize: 9,
+      },
+      bodyStyles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 12, halign: 'center' },
+        3: { fontStyle: 'bold' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 3) {
+          const val = data.cell.raw;
+          if (val === 'Present') data.cell.styles.textColor = [0, 150, 199];
+          else if (val === 'Absent') data.cell.styles.textColor = [220, 38, 38];
+          else if (val === 'Excused') data.cell.styles.textColor = [217, 119, 6];
+          else data.cell.styles.textColor = [156, 163, 175];
+        }
+      },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      margin: { left: 14, right: 14 },
+    });
 
-    const win = window.open('', '_blank', 'width=800,height=900');
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); }, 400);
+    // Footer
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Generated on ${new Date().toLocaleString('en-GB')} — Ceylon Swimming Academy`, 14, finalY);
+
+    return { doc, dateLabel };
+  }
+
+  function downloadAndSendWhatsApp() {
+    const { doc, dateLabel } = generateAttendancePDF();
+    const fileName = `CSA_Attendance_${date}.pdf`;
+
+    // 1. Save/download the PDF locally
+    doc.save(fileName);
+
+    // 2. Build WhatsApp message with summary
+    const message = [
+      `📋 *CSA Attendance Report*`,
+      `📅 ${dateLabel}`,
+      squad !== 'All' ? `🏊 ${squad} Squad` : '',
+      '',
+      `✅ Present: ${counts.Present}`,
+      `❌ Absent: ${counts.Absent}`,
+      `⏰ Excused: ${counts.Excused}`,
+      `⬜ Unmarked: ${counts.Unmarked}`,
+      '',
+      `Total: ${swimmers.length} swimmers`,
+      '',
+      '📎 _PDF saved — please attach from Downloads_',
+    ].filter(Boolean).join('\n');
+
+    // 3. Open WhatsApp with the message
+    const waUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
   }
 
   return (
@@ -474,13 +533,18 @@ function CheckInContent({ user }) {
           </div>
         )}
 
-        {/* Download PDF */}
+        {/* Download PDF + Send WhatsApp */}
         {!loading && markedCount > 0 && (
-          <div className="flex justify-end pt-2 pb-4">
-            <button onClick={printAttendancePDF}
+          <div className="flex flex-col sm:flex-row gap-2 pt-2 pb-4">
+            <button onClick={() => { const { doc } = generateAttendancePDF(); doc.save(`CSA_Attendance_${date}.pdf`); }}
               className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-white transition active:scale-95 min-h-[48px] w-full sm:w-auto justify-center"
               style={{ backgroundColor: 'var(--color-primary-dark)' }}>
-              <FileDown className="h-4 w-4" /> Download Attendance PDF
+              <FileDown className="h-4 w-4" /> Download PDF
+            </button>
+            <button onClick={downloadAndSendWhatsApp}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-white transition active:scale-95 min-h-[48px] w-full sm:w-auto justify-center"
+              style={{ backgroundColor: '#25D366' }}>
+              <Send className="h-4 w-4" /> Save PDF &amp; Send WhatsApp
             </button>
           </div>
         )}
