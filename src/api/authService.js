@@ -61,6 +61,25 @@ export const auth = {
     return data;
   },
 
+  // Re-create a missing user_profiles row (e.g. after accidental deletion)
+  recreateProfile: async (authUser) => {
+    const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
+    const role = authUser.user_metadata?.role || 'Admin';
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .insert({
+        id: authUser.id,
+        email: authUser.email,
+        full_name: fullName,
+        role,
+        status: 'approved',
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
   // Check if user is authenticated and approved
   isAuthenticatedAndApproved: async () => {
     try {

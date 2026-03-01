@@ -30,14 +30,20 @@ export const AuthProvider = ({ children }) => {
 
   const loadUserProfile = useCallback(async (authUser) => {
     try {
-      const userProfile = await auth.getUserProfile(authUser.id);
+      let userProfile = await auth.getUserProfile(authUser.id);
 
       if (!userProfile) {
-        setUser(null);
-        setProfile(null);
-        setIsAuthenticated(false);
-        setAuthError({ type: 'no_profile', message: 'Profile not found. Please contact support.' });
-        return;
+        // Profile row is missing — try to recreate it
+        try {
+          userProfile = await auth.recreateProfile(authUser);
+        } catch (recreateErr) {
+          console.error('Failed to recreate profile:', recreateErr);
+          setUser(null);
+          setProfile(null);
+          setIsAuthenticated(false);
+          setAuthError({ type: 'no_profile', message: 'Profile not found. Please contact support.' });
+          return;
+        }
       }
 
       if (userProfile.status === 'approved') {

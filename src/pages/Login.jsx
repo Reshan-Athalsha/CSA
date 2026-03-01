@@ -28,8 +28,21 @@ export default function Login() {
       });
 
       // Check user approval status
-      const profile = await auth.getUserProfile(user.id);
-      
+      let profile = await auth.getUserProfile(user.id);
+
+      // If the user_profiles row was accidentally deleted, re-create it
+      if (!profile) {
+        try {
+          profile = await auth.recreateProfile(user);
+        } catch (recreateErr) {
+          console.error('Failed to recreate profile:', recreateErr);
+          setError('Your profile is missing and could not be restored. Please contact the administrator.');
+          await auth.signOut();
+          setLoading(false);
+          return;
+        }
+      }
+
       if (profile.status === 'pending') {
         setError('Your account is pending approval. Please wait for an administrator to approve your account.');
         await auth.signOut();
