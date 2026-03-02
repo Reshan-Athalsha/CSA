@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import collections from '@/api/supabaseClient';
-import { Search, Loader2, Phone, Mail, ChevronDown } from 'lucide-react';
+import { Search, Loader2, Phone, Mail, ChevronDown, Trash2 } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
 
 const STATUS_CONFIG = {
@@ -25,6 +25,8 @@ function TrialRequestsContent() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [updating, setUpdating] = useState(null);
+  const [deleting, setDeleting] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
     collections.trialrequests.findAll().then(r => { 
@@ -39,6 +41,18 @@ function TrialRequestsContent() {
     await collections.trialrequests.update(id, { status });
     setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
     setUpdating(null);
+  }
+
+  async function handleDelete(id) {
+    setDeleting(id);
+    try {
+      await collections.trialrequests.delete(id);
+      setRequests(prev => prev.filter(r => r.id !== id));
+    } catch (err) {
+      console.error('Failed to delete trial request:', err);
+    }
+    setDeleting(null);
+    setConfirmDelete(null);
   }
 
   const filtered = requests.filter(r =>
@@ -109,13 +123,30 @@ function TrialRequestsContent() {
                     {req.message && <p className="text-xs text-gray-400 mt-2 italic">"{req.message}"</p>}
                     <p className="text-[10px] text-gray-300 mt-2">{req.created_at ? new Date(req.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</p>
                   </div>
-                  <div className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
+                  <div className="flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0 flex items-center gap-2">
                     <select value={req.status} onChange={e => updateStatus(req.id, e.target.value)}
                       disabled={updating === req.id}
                       className="w-full sm:w-auto border rounded-xl px-3 py-2.5 text-xs font-semibold focus:outline-none bg-white cursor-pointer disabled:opacity-50 min-h-[44px]"
                       style={{ borderColor: '#ade8f4', color: 'var(--color-primary-dark)' }}>
                       {['New', 'Contacted', 'Scheduled', 'Completed', 'Declined'].map(s => <option key={s}>{s}</option>)}
                     </select>
+                    {confirmDelete === req.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => handleDelete(req.id)} disabled={deleting === req.id}
+                          className="px-3 py-2.5 text-xs font-semibold rounded-xl bg-red-600 text-white active:bg-red-700 disabled:opacity-50 min-h-[44px] transition">
+                          {deleting === req.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Confirm'}
+                        </button>
+                        <button onClick={() => setConfirmDelete(null)}
+                          className="px-3 py-2.5 text-xs font-semibold rounded-xl border border-gray-300 bg-white text-gray-600 active:bg-gray-50 min-h-[44px] transition">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => setConfirmDelete(req.id)} title="Delete request"
+                        className="p-2.5 rounded-xl border border-red-200 text-red-500 bg-white active:bg-red-50 transition min-h-[44px] min-w-[44px] flex items-center justify-center">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
