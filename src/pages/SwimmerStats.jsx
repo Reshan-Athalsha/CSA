@@ -329,10 +329,10 @@ function StatsContent({ user }) {
     <div className="space-y-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-4">
         <div className="h-14 w-14 rounded-full flex items-center justify-center font-black text-xl text-white" style={{ backgroundColor: 'var(--color-primary-dark)' }}>
-          {swimmer?.first_name?.charAt(0) || user.full_name?.charAt(0)}
+          {swimmer?.first_name?.charAt(0) || user.profile?.full_name?.charAt(0)}
         </div>
         <div>
-          <h1 className="text-2xl font-black" style={{ color: 'var(--color-text-header)' }}>{swimmer ? `${swimmer.first_name} ${swimmer.last_name}` : user.full_name}</h1>
+          <h1 className="text-2xl font-black" style={{ color: 'var(--color-text-header)' }}>{swimmer ? `${swimmer.first_name} ${swimmer.last_name}` : user.profile?.full_name}</h1>
           {swimmer && (
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: { Beginner: '#48cae4', Intermediate: '#0096c7', Elite: '#023e8a' }[swimmer.squad] }}>
               {swimmer.squad}

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import collections from '@/api/supabaseClient';
 import { localCache } from '@/lib/cache';
 import useDebouncedValue from '@/hooks/useDebouncedValue';
-import { Plus, Search, Edit2, Trash2, Loader2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Loader2, X } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
 
 const SQUADS = ['Beginner', 'Intermediate', 'Elite'];

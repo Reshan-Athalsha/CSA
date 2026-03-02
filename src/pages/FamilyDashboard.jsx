@@ -322,14 +322,14 @@ function FamilyContent({ user }) {
   const pbMap = {};
   raceTimes.forEach(rt => {
     const key = `${rt.swimmer_id}-${rt.event}`;
-    if (!pbMap[key] || rt.time_seconds < pbMap[key]) pbMap[key] = { time: rt.time_seconds, event: rt.event, date: rt.date };
+    if (!pbMap[key] || rt.time_seconds < pbMap[key].time) pbMap[key] = { time: rt.time_seconds, event: rt.event, date: rt.date };
   });
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-black" style={{ color: 'var(--color-text-header)' }}>Family Dashboard</h1>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--color-primary-dark)' }}>Welcome, {user.full_name}</p>
+        <p className="text-sm mt-0.5" style={{ color: 'var(--color-primary-dark)' }}>Welcome, {user.profile?.full_name}</p>
       </div>
 
       {swimmers.map(swimmer => {

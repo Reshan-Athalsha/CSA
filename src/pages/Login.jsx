@@ -28,7 +28,7 @@ export default function Login() {
       });
 
       // Check user approval status
-      let profile = await auth.getUserProfile(user.id);
+      let profile = await auth.getUserProfile();
 
       // If the user_profiles row was accidentally deleted, re-create it
       if (!profile) {

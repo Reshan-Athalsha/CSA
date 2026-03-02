@@ -332,7 +332,7 @@ function CheckInContent({ user }) {
     let chipX = 14;
     summaryItems.forEach(item => {
       doc.setTextColor(...item.color);
-      doc.setFont(undefined, 'bold');
+      doc.setFont('helvetica', 'bold');
       doc.text(item.label, chipX, summaryY);
       chipX += doc.getTextWidth(item.label) + 12;
     });
@@ -377,7 +377,7 @@ function CheckInContent({ user }) {
     const finalY = doc.lastAutoTable.finalY + 10;
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.setFont(undefined, 'normal');
+    doc.setFont('helvetica', 'normal');
     doc.text(`Generated on ${new Date().toLocaleString('en-GB')} — Ceylon Swimming Academy`, 14, finalY);
 
     return { doc, dateLabel };

@@ -54,7 +54,7 @@ export const auth = {
 
   // Get user profile with approval status
   // Uses RPC function to bypass RLS recursive policy issue
-  getUserProfile: async (userId) => {
+  getUserProfile: async () => {
     const { data, error } = await supabase.rpc('get_my_profile');
     if (error) throw error;
     if (!data) return null;
@@ -64,7 +64,7 @@ export const auth = {
   // Re-create a missing user_profiles row (e.g. after accidental deletion)
   recreateProfile: async (authUser) => {
     const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
-    const role = authUser.user_metadata?.role || 'Admin';
+    const role = authUser.user_metadata?.role || 'Parent';
     const { data, error } = await supabase
       .from('user_profiles')
       .insert({
@@ -86,7 +86,7 @@ export const auth = {
       const user = await auth.getCurrentUser();
       if (!user) return { authenticated: false, approved: false, profile: null };
       
-      const profile = await auth.getUserProfile(user.id);
+      const profile = await auth.getUserProfile();
       return {
         authenticated: true,
         approved: profile.status === 'approved',

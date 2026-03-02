@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/api/supabaseClient';
 import collections from '@/api/supabaseClient';
-import { Users, Search, CheckCircle, Loader2, Link2, Unlink2, AlertCircle } from 'lucide-react';
+import { Users, Search, CheckCircle, Loader2, Link2, AlertCircle } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
 
 export default function ParentLinking() {

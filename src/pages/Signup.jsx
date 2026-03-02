@@ -129,7 +129,7 @@ export default function Signup() {
                 placeholder="Enter your password"
                 minLength={8}
               />
-              <p className="text-sm text-gray-500">Must be at least 8 characters</p>
+              <p className="text-sm text-gray-500">Must be at least 8 characters long</p>
             </div>
 
             <div className="space-y-2">

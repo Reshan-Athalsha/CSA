@@ -11,7 +11,7 @@ const PRIORITY_CONFIG = {
 };
 
 function NoticeModal({ notice, onClose, onSave, user }) {
-  const [form, setForm] = useState(notice || { title: '', content: '', target_audience: 'All', priority: 'Normal', author_name: user?.full_name || '' });
+  const [form, setForm] = useState(notice || { title: '', content: '', target_audience: 'All', priority: 'Normal', author_name: user?.profile?.full_name || '' });
   const [saving, setSaving] = useState(false);
 
   const handleSave = async (e) => {
@@ -24,8 +24,7 @@ function NoticeModal({ notice, onClose, onSave, user }) {
       onClose();
       await collections.notices.update(notice.id, form);
     } else {
-      // BUG FIX: was user?.name (undefined), correct field is user?.full_name
-      const created = await collections.notices.create({ ...form, author_name: user?.full_name || 'Admin' });
+      const created = await collections.notices.create({ ...form, author_name: user?.profile?.full_name || 'Admin' });
       onSave(created);
       onClose();
     }

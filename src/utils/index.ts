@@ -7,7 +7,7 @@ export function createPageUrl(pageName: string) {
  * Shared across RaceTimes, PoolsideCheckIn, FamilyDashboard, SwimmerStats, Meets.
  */
 export function formatTime(secs: number | null | undefined): string {
-  if (!secs) return '–';
+  if (secs == null) return '–';
   const m = Math.floor(secs / 60);
   const s = (secs % 60).toFixed(2).padStart(5, '0');
   return m > 0 ? `${m}:${s}` : `${parseFloat(s).toFixed(2)}s`;

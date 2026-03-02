@@ -145,12 +145,14 @@ export const collections = {
     },
     
     update: async (id, updates) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('attendance')
         .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('id', id);
+        .eq('id', id)
+        .select()
+        .single();
       if (error) throw error;
-      return { id, ...updates };
+      return data;
     },
     
     delete: async (id) => {

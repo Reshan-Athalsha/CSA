@@ -38,7 +38,7 @@ const ROLE_NAV = {
 const PUBLIC_PAGES = ['Landing', 'PublicLanding'];
 
 export default function Layout({ children, currentPageName }) {
-  const { user, loading, isAuthenticated, role } = useCurrentUser();
+  const { user, loading, isAuthenticated, role, profile } = useCurrentUser();
   const { logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -125,11 +125,11 @@ export default function Layout({ children, currentPageName }) {
           <div className="px-4 py-4 border-t" style={{ borderColor: 'var(--color-accent-light)' }}>
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: 'var(--color-primary-dark)' }}>
-                {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                {profile?.full_name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-medium truncate" style={{ color: 'var(--color-text-main)' }}>
-                  {user?.full_name || 'User'}
+                  {profile?.full_name || 'User'}
                 </p>
                 <p className="text-[10px] capitalize" style={{ color: 'var(--color-primary-dark)' }}>
                   {role === 'Admin' ? 'Head Coach' : role?.replace(/([A-Z])/g, ' $1')?.trim()}

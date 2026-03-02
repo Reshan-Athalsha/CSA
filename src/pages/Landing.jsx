@@ -29,9 +29,14 @@ export default function Landing() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
-    await collections.trialrequests.create({ ...form, child_age: Number(form.child_age) });
-    setSubmitted(true);
-    setSubmitting(false);
+    try {
+      await collections.trialrequests.create({ ...form, child_age: Number(form.child_age) });
+      setSubmitted(true);
+    } catch (err) {
+      console.error('Trial request submission failed:', err);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/api/supabaseClient';
-import { auth } from '@/api/authService';
+
 import { Users, Loader2, Shield, RefreshCw, Plus, Edit2, Trash2, X, KeyRound, CheckCircle, XCircle } from 'lucide-react';
 import RoleGuard from '@/components/RoleGuard';
 import { useAuth } from '@/lib/AuthContext';
@@ -72,8 +72,8 @@ function AddUserModal({ onClose, onAdded, showMsg }) {
           </div>
           <div>
             <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--color-text-header)' }}>Password *</label>
-            <input required type="password" minLength={6} className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ borderColor: '#ade8f4' }}
-              placeholder="Minimum 6 characters"
+            <input required type="password" minLength={8} className="w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none" style={{ borderColor: '#ade8f4' }}
+              placeholder="Minimum 8 characters"
               value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
           </div>
           <div className="grid grid-cols-2 gap-3">

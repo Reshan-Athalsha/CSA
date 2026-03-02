@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
 
   const loadUserProfile = useCallback(async (authUser) => {
     try {
-      let userProfile = await auth.getUserProfile(authUser.id);
+      let userProfile = await auth.getUserProfile();
 
       if (!userProfile) {
         // Profile row is missing — try to recreate it
